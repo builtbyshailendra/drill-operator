@@ -1,0 +1,47 @@
+# Written for a real cluster but never applied to one: this project has only
+# been run against envtest. Build and push the image yourself first.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: drill-operator-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drill-operator
+  namespace: drill-operator-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drill-operator
+  namespace: drill-operator-system
+spec:
+  replicas: 2   # leader election: one acts, one waits
+  selector:
+    matchLabels: {app: drill-operator}
+  template:
+    metadata:
+      labels: {app: drill-operator}
+    spec:
+      serviceAccountName: drill-operator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: manager
+          image: drill-operator:dev
+          args: ["--leader-elect", "--leader-election-namespace=drill-operator-system"]
+          ports:
+            - {name: metrics, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 8081}
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8081}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}

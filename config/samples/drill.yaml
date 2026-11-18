@@ -1,0 +1,21 @@
+# Opt the namespace in first:
+#   kubectl label namespace payments drills.builtbyshailendra.dev/allowed=true
+apiVersion: drills.builtbyshailendra.dev/v1alpha1
+kind: Drill
+metadata:
+  name: lose-one-api-replica
+  namespace: payments
+spec:
+  target:
+    deployment: api
+  action:
+    type: ScaleDown
+    count: 1
+  guard:
+    minReadyPods: 2
+    prometheus:
+      url: http://prometheus.monitoring:9090
+      query: sum(rate(http_requests_total{job="api",code=~"5.."}[1m])) / sum(rate(http_requests_total{job="api"}[1m])) or vector(0)
+      maxValue: "0.02"
+  observeFor: 10m
+  checkEvery: 15s

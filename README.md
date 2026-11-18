@@ -40,3 +40,18 @@ Choices worth explaining:
 Tests (envtest, the controller running in the test process; the tests play the kubelet by creating pods and setting their Ready condition): a DeletePods drill that passes; five refusals that touch no pods; another pod failing mid-drill (aborted, lowest ready 2); a ScaleDown undone after its window; a Prometheus guard (a fake Prometheus server) going from 0.01 to 0.21 (aborted, replicas restored); deleting a running Drill (finalizer restores replicas); a retried injection deleting only the recorded pod; and a replacement pod with a reused name surviving. Removing the UID precondition makes the last test fail, so it really tests that.
 
 What broke: one test was flaky (1 failure in 5 full runs). Finishing a Drill takes two writes, status and then metadata (to remove the finalizer), and the test sometimes read the Drill between them. The operator was right; the test now waits for the finalizer to go. After the fix: 10 full runs in a row passed.
+
+### Step 3: the operator binary, RBAC from markers, and an end-to-end run
+
+- `cmd/manager`: the operator: leader election (a Lease), `/metrics` (including `drill_operator_drills_finished_total{phase}`), `/healthz` and `/readyz`.
+- `config/rbac/role.yaml` is **generated** from `+kubebuilder:rbac` markers next to the code that needs each permission. `config/manager` has a Namespace, ServiceAccount and a 2-replica Deployment (non-root, read-only root filesystem, all capabilities dropped); `config/samples/drill.yaml` is a ScaleDown drill with an error-ratio guard; there's a Dockerfile. **None of these has been applied to a real cluster or built**: there's no Docker daemon or cluster on this laptop.
+- `test/e2e`: builds the real binary and runs it **as its own process**, logged in as a user bound to *only* the generated ClusterRole, with leader election on. It runs a ScaleDown drill to `Succeeded`, checks replicas are back, reads the metric from `/metrics`, finds the Lease, shows `kubectl get drills` (envtest ships kubectl):
+
+  ```text
+  NAME               TARGET   ACTION      PHASE       AGE
+  lose-one-replica   api      ScaleDown   Succeeded   2s
+  ```
+
+  and fails if the operator's log contains any "forbidden".
+
+What broke: the first end-to-end run failed on exactly that check. Leader election announces "became leader" with the **old** core/v1 Events API, while the controller uses `events.k8s.io/v1`, and the role only allowed the new one. On a real cluster the event would have been silently dropped. Added the marker, regenerated the role. Removing `events.k8s.io` from the role by hand also makes the test fail, so it checks the controller's own permissions too.
