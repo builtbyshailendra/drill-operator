@@ -13,8 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	drillsv1 "github.com/builtbyshailendra/drill-operator/api/v1alpha1"
 )
@@ -51,10 +54,35 @@ func TestMain(m *testing.M) {
 		fmt.Println("client:", err)
 		os.Exit(1)
 	}
+
+	// The operator under test, running in this process like it would in a pod.
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"}, HealthProbeBindAddress: "0"})
+	if err != nil {
+		fmt.Println("manager:", err)
+		os.Exit(1)
+	}
+	r := &Reconciler{Client: mgr.GetClient(), Recorder: mgr.GetEventRecorder("drill-operator"), Guard: PrometheusReader{}}
+	// Drills labelled manual are left alone, so a test can call Reconcile itself.
+	skipManual := predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetLabels()[manualLabel] != "true" })
+	if err := r.SetupWithManager(mgr, skipManual); err != nil {
+		fmt.Println("controller:", err)
+		os.Exit(1)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		if err := mgr.Start(ctx); err != nil {
+			fmt.Println("manager stopped:", err)
+		}
+	}()
+
 	code := m.Run()
+	cancel()
 	_ = env.Stop()
 	os.Exit(code)
 }
+
+const manualLabel = "test.drills/manual"
 
 var nsCounter int
 

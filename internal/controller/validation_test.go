@@ -41,12 +41,14 @@ func TestAPIServerRejectsBadDrills(t *testing.T) {
 		"check every 10ms": {func(d *drillsv1.Drill) {
 			d.Spec.CheckEvery = &metav1.Duration{Duration: 10 * time.Millisecond}
 		}, "at least 100ms"},
-		"count zero":          {func(d *drillsv1.Drill) { d.Spec.Action.Count = 0 }, "spec.action.count"},
-		"count eleven":        {func(d *drillsv1.Drill) { d.Spec.Action.Count = 11 }, "spec.action.count"},
-		"unknown action":      {func(d *drillsv1.Drill) { d.Spec.Action.Type = "DeleteNamespace" }, "spec.action.type"},
-		"negative guard":      {func(d *drillsv1.Drill) { d.Spec.Guard.MinReadyPods = -1 }, "spec.guard.minReadyPods"},
-		"no target":           {func(d *drillsv1.Drill) { d.Spec.Target.Deployment = "" }, "spec.target.deployment"},
-		"prometheus over ftp": {func(d *drillsv1.Drill) { d.Spec.Guard.Prometheus = &drillsv1.PrometheusGuard{URL: "ftp://x", Query: "up", MaxValue: "1"} }, "spec.guard.prometheus.url"},
+		"count zero":     {func(d *drillsv1.Drill) { d.Spec.Action.Count = 0 }, "spec.action.count"},
+		"count eleven":   {func(d *drillsv1.Drill) { d.Spec.Action.Count = 11 }, "spec.action.count"},
+		"unknown action": {func(d *drillsv1.Drill) { d.Spec.Action.Type = "DeleteNamespace" }, "spec.action.type"},
+		"negative guard": {func(d *drillsv1.Drill) { d.Spec.Guard.MinReadyPods = -1 }, "spec.guard.minReadyPods"},
+		"no target":      {func(d *drillsv1.Drill) { d.Spec.Target.Deployment = "" }, "spec.target.deployment"},
+		"prometheus over ftp": {func(d *drillsv1.Drill) {
+			d.Spec.Guard.Prometheus = &drillsv1.PrometheusGuard{URL: "ftp://x", Query: "up", MaxValue: "1"}
+		}, "spec.guard.prometheus.url"},
 		"limit that isn't a number": {func(d *drillsv1.Drill) {
 			d.Spec.Guard.Prometheus = &drillsv1.PrometheusGuard{URL: "http://p:9090", Query: "up", MaxValue: "lots"}
 		}, "spec.guard.prometheus.maxValue"},

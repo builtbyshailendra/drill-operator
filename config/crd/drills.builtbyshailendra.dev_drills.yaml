@@ -252,8 +252,21 @@ spec:
                   The pods chosen for deletion. Written before any pod is deleted, so a
                   retried reconcile deletes these same pods and never extra ones.
                 items:
-                  type: string
+                  description: |-
+                    Victim is a pod chosen for deletion. The UID matters: the pod is deleted
+                    with a UID precondition, so if it's already gone and a new pod reuses the
+                    name, the new one is left alone.
+                  properties:
+                    name:
+                      type: string
+                    uid:
+                      type: string
+                  required:
+                  - name
+                  - uid
+                  type: object
                 type: array
+                x-kubernetes-list-type: atomic
             type: object
         required:
         - spec

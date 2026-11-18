@@ -136,7 +136,8 @@ type DrillStatus struct {
 	// The pods chosen for deletion. Written before any pod is deleted, so a
 	// retried reconcile deletes these same pods and never extra ones.
 	// +optional
-	Victims []string `json:"victims,omitempty"`
+	// +listType=atomic
+	Victims []Victim `json:"victims,omitempty"`
 
 	// The Deployment's replicas before a ScaleDown, to put back.
 	// +optional
@@ -156,6 +157,14 @@ type DrillStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// Victim is a pod chosen for deletion. The UID matters: the pod is deleted
+// with a UID precondition, so if it's already gone and a new pod reuses the
+// name, the new one is left alone.
+type Victim struct {
+	Name string `json:"name"`
+	UID  string `json:"uid"`
 }
 
 // +kubebuilder:object:root=true
