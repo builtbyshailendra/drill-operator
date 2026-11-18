@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: generated files are up to date
+        run: |
+          go tool controller-gen object crd:crdVersions=v1 paths=./api/v1alpha1 output:crd:artifacts:config=config/crd
+          go tool controller-gen rbac:roleName=drill-operator paths=./cmd/manager paths=./internal/controller output:rbac:artifacts:config=config/rbac
+          git diff --exit-code
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: tests against envtest
+        run: bash scripts/test.sh -race -timeout 10m

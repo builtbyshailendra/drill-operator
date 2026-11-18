@@ -2,7 +2,51 @@
 
 A Kubernetes operator for failure drills. A `Drill` resource says: break this Deployment a little (delete pods, or remove replicas), watch a guard (ready pods, a Prometheus query), and stop early, putting things back, if the guard trips.
 
-Status: built step by step, locally. Not published. Tested against a real kube-apiserver and etcd (envtest); never run on a real cluster.
+```yaml
+apiVersion: drills.builtbyshailendra.dev/v1alpha1
+kind: Drill
+metadata: {name: lose-one-api-replica, namespace: payments}
+spec:
+  target: {deployment: api}
+  action: {type: ScaleDown, count: 1}
+  guard:
+    minReadyPods: 2
+    prometheus: {url: "http://prometheus.monitoring:9090", query: "<error ratio> or vector(0)", maxValue: "0.02"}
+  observeFor: 10m
+  checkEvery: 15s
+```
+
+Go 1.27 · controller-runtime 0.25 · Kubernetes 1.37 API · controller-gen · envtest. Personal learning project, built pairing with Claude Code. **Tested against a real kube-apiserver and etcd (envtest) on this laptop; never run on a real cluster.**
+
+## Safety rules it enforces
+
+| Before it starts | While it runs |
+|---|---|
+| the namespace must be labelled `drills.builtbyshailendra.dev/allowed=true` | checks the guard every `checkEvery` |
+| the service must already meet its guard (steady state) | stops early if ready pods drop below `minReadyPods` or the query goes above `maxValue` |
+| the action alone mustn't break the guard (blast radius) | a guard it can't read counts as tripped |
+| the Prometheus guard must be readable | puts replicas back at the end, on abort, and if the Drill is deleted (finalizer) |
+
+The API server itself rejects bad Drills (CEL rules in the CRD): `checkEvery` longer than `observeFor`, windows over an hour, counts outside 1–10, and any change to a Drill after it's created.
+
+## Try it
+
+```bash
+bash scripts/test.sh   # first run downloads the Kubernetes 1.37 test binaries (~180 MB)
+```
+
+It runs 25 tests: CRD validation against the real API server, the controller's behaviour (the tests play the kubelet by creating pods and flipping their Ready condition), and an end-to-end run of the compiled binary with only its generated RBAC.
+
+## Project layout
+
+| Path | What |
+|---|---|
+| `api/v1alpha1` | the Drill type and its validation markers |
+| `internal/controller` | the reconciler, the Prometheus guard, and the tests |
+| `cmd/manager` | the operator binary |
+| `config/crd`, `config/rbac` | **generated** by `go tool controller-gen` |
+| `config/manager`, `config/samples`, `Dockerfile` | deployment files, written but not applied or built |
+| `test/e2e` | the binary against envtest with only its own RBAC |
 
 ## Build log
 
@@ -55,3 +99,9 @@ What broke: one test was flaky (1 failure in 5 full runs). Finishing a Drill tak
   and fails if the operator's log contains any "forbidden".
 
 What broke: the first end-to-end run failed on exactly that check. Leader election announces "became leader" with the **old** core/v1 Events API, while the controller uses `events.k8s.io/v1`, and the role only allowed the new one. On a real cluster the event would have been silently dropped. Added the marker, regenerated the role. Removing `events.k8s.io` from the role by hand also makes the test fail, so it checks the controller's own permissions too.
+
+### Step 4: docs and CI
+
+This README, `LEARN.md`, and `.github/workflows/ci.yml` (regenerates the CRD and RBAC and fails if they differ from what's committed, vets, and runs the tests). **The workflow has not run**: the project isn't published.
+
+Where it stands: 4 local commits; 25 tests passing (the controller suite 10 times in a row after the flaky-test fix). Not published, never on a real cluster, image never built.
