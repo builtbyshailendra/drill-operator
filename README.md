@@ -35,7 +35,7 @@ The API server itself rejects bad Drills (CEL rules in the CRD): `checkEvery` lo
 bash scripts/test.sh   # first run downloads the Kubernetes 1.37 test binaries (~180 MB)
 ```
 
-It runs 25 tests: CRD validation against the real API server, the controller's behaviour (the tests play the kubelet by creating pods and flipping their Ready condition), and an end-to-end run of the compiled binary with only its generated RBAC.
+It runs 24 tests: CRD validation against the real API server, the controller's behaviour (the tests play the kubelet by creating pods and flipping their Ready condition), and an end-to-end run of the compiled binary with only its generated RBAC.
 
 ## Project layout
 
@@ -104,4 +104,4 @@ What broke: the first end-to-end run failed on exactly that check. Leader electi
 
 This README, `LEARN.md`, and `.github/workflows/ci.yml` (regenerates the CRD and RBAC and fails if they differ from what's committed, vets, and runs the tests). **The workflow has not run**: the project isn't published.
 
-Where it stands: 4 local commits; 25 tests passing (the controller suite 10 times in a row after the flaky-test fix). Not published, never on a real cluster, image never built.
+Where it stands: 4 local commits; 24 tests passing (the controller suite 10 times in a row after the flaky-test fix). Not published, never on a real cluster, image never built.
