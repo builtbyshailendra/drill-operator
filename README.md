@@ -1,5 +1,7 @@
 # drill-operator
 
+[![ci](https://github.com/builtbyshailendra/drill-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/builtbyshailendra/drill-operator/actions/workflows/ci.yml)
+
 A Kubernetes operator for failure drills. A `Drill` resource says: break this Deployment a little (delete pods, or remove replicas), watch a guard (ready pods, a Prometheus query), and stop early, putting things back, if the guard trips.
 
 ```yaml
@@ -102,6 +104,6 @@ What broke: the first end-to-end run failed on exactly that check. Leader electi
 
 ### Step 4: docs and CI
 
-This README, `LEARN.md`, and `.github/workflows/ci.yml` (regenerates the CRD and RBAC and fails if they differ from what's committed, vets, and runs the tests). **The workflow has not run**: the project isn't published.
+This README, `LEARN.md`, and `.github/workflows/ci.yml` (regenerates the CRD and RBAC and fails if they differ from what's committed, vets, and runs the tests). It runs on every push (badge above).
 
-Where it stands: 4 local commits; 24 tests passing (the controller suite 10 times in a row after the flaky-test fix). Not published, never on a real cluster, image never built.
+Where it stands: 24 tests passing (the controller suite 10 times in a row after the flaky-test fix), locally and in CI. Published 20 Nov 2026; never on a real cluster, image never built.
